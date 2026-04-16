@@ -8,8 +8,9 @@
 
     // --- State --------------------------------------------------------------
     // Populated after prices.csv loads. Each item:
-    //   { id, type, name, price, available (>=0 or Infinity), selected (0..10) }
+    //   { id, type, name, price, inStockLbs (>=0 or Infinity), selected (0..10 lbs) }
     var items = [];
+    var MAX_ORDER_LBS = 10;
 
     // --- Email assembly (shared by contact display and order mailto) --------
     function contactEmail() {
@@ -82,9 +83,9 @@
         var iType = header.indexOf('type');
         var iName = header.indexOf('name');
         var iPrice = header.indexOf('price');
-        var iQty = header.indexOf('quantity');
+        var iLbs = header.indexOf('lbs');
         if (iType < 0 || iName < 0 || iPrice < 0) {
-            throw new Error('prices.csv must have columns: Type, Name, Price (and optionally Quantity)');
+            throw new Error('prices.csv must have columns: Type, Name, Price (and optionally Lbs)');
         }
 
         items = [];
@@ -98,15 +99,15 @@
             var price = (row[iPrice] || '').trim();
             if (!type || !name) continue;
 
-            // If no Quantity column exists, or the cell is blank/non-numeric,
-            // treat as in-stock with no cap so the list degrades to its
-            // original behavior.
-            var available = Number.POSITIVE_INFINITY;
-            if (iQty >= 0) {
-                var raw = (row[iQty] || '').trim();
+            // If no Lbs column exists, or the cell is blank/non-numeric,
+            // treat as in-stock. The CSV value represents available stock in
+            // lbs; 0 means out of stock. Anything > 0 means orderable.
+            var inStockLbs = Number.POSITIVE_INFINITY;
+            if (iLbs >= 0) {
+                var raw = (row[iLbs] || '').trim();
                 if (raw !== '') {
-                    var n = parseInt(raw, 10);
-                    if (!isNaN(n)) available = n;
+                    var n = parseFloat(raw);
+                    if (!isNaN(n)) inStockLbs = n;
                 }
             }
 
@@ -115,7 +116,7 @@
                 type: type,
                 name: name,
                 price: price,
-                available: available,
+                inStockLbs: inStockLbs,
                 selected: 0
             };
             items.push(item);
@@ -152,27 +153,41 @@
         var qtyCell = document.createElement('span');
         qtyCell.className = 'item-qty-cell';
 
-        if (item.available <= 0) {
+        if (item.inStockLbs <= 0) {
             var tag = document.createElement('span');
             tag.className = 'stock-tag';
             tag.textContent = 'Out of stock';
             qtyCell.appendChild(tag);
         } else {
-            var select = document.createElement('select');
-            select.className = 'qty-select';
-            select.setAttribute('aria-label', 'Order quantity for ' + item.name);
-            // User spec: dropdown up to 10. Quantity is never surfaced, so
-            // always offer 0..10 regardless of the in-stock count.
-            for (var n = 0; n <= 10; n++) {
-                var opt = document.createElement('option');
-                opt.value = String(n);
-                opt.textContent = n === 0 ? '\u2014' : String(n); // em dash for 0
-                select.appendChild(opt);
-            }
-            select.addEventListener('change', function (e) {
-                item.selected = parseInt(e.target.value, 10) || 0;
-            });
-            qtyCell.appendChild(select);
+            // Number input: visitor types an amount in lbs, capped at 10.
+            // The in-stock amount is never surfaced — the cap is always 10.
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'lbs-input';
+            input.min = '0';
+            input.max = String(MAX_ORDER_LBS);
+            input.step = '0.1';
+            input.placeholder = '0';
+            input.inputMode = 'decimal';
+            input.setAttribute('aria-label', 'Order amount in lbs for ' + item.name);
+
+            var sync = function (e) {
+                var raw = e.target.value;
+                if (raw === '') { item.selected = 0; return; }
+                var v = parseFloat(raw);
+                if (isNaN(v) || v < 0) { e.target.value = ''; item.selected = 0; return; }
+                if (v > MAX_ORDER_LBS) { e.target.value = String(MAX_ORDER_LBS); v = MAX_ORDER_LBS; }
+                item.selected = v;
+            };
+            input.addEventListener('input', sync);
+            input.addEventListener('change', sync);
+
+            qtyCell.appendChild(input);
+
+            var suffix = document.createElement('span');
+            suffix.className = 'lbs-suffix';
+            suffix.textContent = 'lbs';
+            qtyCell.appendChild(suffix);
         }
         li.appendChild(qtyCell);
 
@@ -193,6 +208,13 @@
 
     function selectedItems() {
         return items.filter(function (i) { return i.selected > 0; });
+    }
+
+    function formatLbs(n) {
+        // Up to 2 decimals, trailing zeros stripped. "2.5 lbs", "1 lb".
+        var rounded = Math.round(n * 100) / 100;
+        var text = rounded.toString();
+        return text + (rounded === 1 ? ' lb' : ' lbs');
     }
 
     function openOrderForm() {
@@ -225,7 +247,7 @@
         chosen.forEach(function (item) {
             var li = document.createElement('li');
             var label = document.createElement('span');
-            label.textContent = item.name + ' \u00d7 ' + item.selected;
+            label.textContent = item.name + ' — ' + formatLbs(item.selected);
             var sub = document.createElement('span');
             sub.className = 'order-summary-type';
             sub.textContent = item.type;
@@ -311,8 +333,8 @@
         lines.push('Items:');
         order.items.forEach(function (item) {
             lines.push(
-                '- ' + item.type + ' \u2014 ' + item.name +
-                ' \u00d7 ' + item.selected + ' (' + item.price + ')'
+                '- ' + item.type + ' — ' + item.name +
+                ' — ' + formatLbs(item.selected) + ' (' + item.price + ')'
             );
         });
         lines.push('');
