@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Elysian Meats</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="hero">
+        <img src="logo.png" alt="Elysian Meats" class="logo">
+        <p class="tagline">Pasture-raised goat and Kune Kune pork from Colorado</p>
+    </header>
+
+    <main>
+        <div id="menu-sections">
+            <noscript>
+                <p class="menu-error">Please enable JavaScript to view the current price list,
+                    or contact us for pricing.</p>
+            </noscript>
+        </div>
+
+        <p class="usda-note">All packaged meats are processed in a USDA certified facility.</p>
+
+        <div class="order-actions-bar">
+            <button type="button" id="generate-order-btn" class="btn-primary">Generate Order</button>
+        </div>
+
+        <div id="order-form-container" hidden></div>
+
+        <section class="contact">
+            <h2>Contact</h2>
+            <p>Contact us to place your order or inquire about availability.</p>
+            <dl class="contact-details">
+                <dt>Email</dt>
+                <dd id="email-slot"><noscript>Please enable JavaScript to view our email address.</noscript></dd>
+                <dt>Locations</dt>
+                <dd>Blanca, Como, and Bailey, CO</dd>
+                <dt>Hours</dt>
+                <dd>Monday&ndash;Friday, 9 AM &ndash; 5 PM</dd>
+            </dl>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; Elysian Meats 2026</p>
+    </footer>
+
+    <script src="prices.js"></script>
+</body>
+</html>
